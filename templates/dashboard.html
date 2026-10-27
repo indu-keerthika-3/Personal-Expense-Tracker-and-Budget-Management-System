@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Personal Expense Tracker{% endblock %}
+{% block page_title %}Financial Dashboard{% endblock %}
+
+{% block content %}
+<!-- Financial Summary Cards -->
+<div class="stats-grid">
+    <!-- Total Income Card -->
+    <div class="stat-card card-income">
+        <div class="stat-info">
+            <span class="stat-label">Total Income</span>
+            <span class="stat-value amount-income">{{ summary.total_income | currency }}</span>
+            <span class="stat-meta">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="18 15 12 9 6 15"></polyline>
+                </svg>
+                Current reporting period
+            </span>
+        </div>
+        <div class="stat-icon icon-income">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="19" x2="12" y2="5"></line>
+                <polyline points="5 12 12 5 19 12"></polyline>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Total Expenses Card -->
+    <div class="stat-card card-expense">
+        <div class="stat-info">
+            <span class="stat-label">Total Expenses</span>
+            <span class="stat-value amount-expense">{{ summary.total_expenses | currency }}</span>
+            <span class="stat-meta">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                Current reporting period
+            </span>
+        </div>
+        <div class="stat-icon icon-expense">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <polyline points="19 12 12 19 5 12"></polyline>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Current Balance (Net Cash Flow) -->
+    <div class="stat-card card-balance">
+        <div class="stat-info">
+            <span class="stat-label">Current Balance</span>
+            <span class="stat-value {% if summary.net_cash_flow >= 0 %}amount-income{% else %}amount-expense{% endif %}">
+                {{ summary.net_cash_flow | currency }}
+            </span>
+            <span class="stat-meta">
+                Net Cash Flow (Income − Expenses)
+            </span>
+        </div>
+        <div class="stat-icon icon-balance">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                <line x1="2" y1="10" x2="22" y2="10"></line>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Monthly Budget & Remaining -->
+    <div class="stat-card card-budget">
+        <div class="stat-info" style="width: 100%;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                <span class="stat-label">Monthly Budget</span>
+                <span class="badge {% if summary.budget_status == 'exceeded' %}badge-expense{% elif summary.budget_status == 'warning' %}alert-warning{% else %}badge-income{% endif %}">
+                    {{ summary.budget_utilization }}% Used
+                </span>
+            </div>
+            <span class="stat-value">{{ summary.remaining_budget | currency }}</span>
+            <span class="stat-meta" style="margin-bottom: 8px;">
+                Remaining of {{ summary.monthly_budget | currency }} limit
+            </span>
+            <div class="progress-track">
+                <div class="progress-fill {% if summary.budget_status == 'exceeded' %}progress-danger{% elif summary.budget_status == 'warning' %}progress-warning{% else %}progress-safe{% endif %}" 
+                     style="width: {{ [summary.budget_utilization, 100]|min }}%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Savings Rate & Volume -->
+    <div class="stat-card card-savings">
+        <div class="stat-info">
+            <span class="stat-label">Savings Rate</span>
+            <span class="stat-value">{{ summary.savings_rate }}%</span>
+            <span class="stat-meta">
+                {{ summary.total_transactions }} total transactions recorded
+            </span>
+        </div>
+        <div class="stat-icon icon-savings">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="8" r="7"></circle>
+                <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+            </svg>
+        </div>
+    </div>
+</div>
+
+<!-- Interactive Financial Charts Row -->
+<div class="charts-grid">
+    <!-- Chart 1: Income vs. Expenses -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                Income vs. Expenses
+            </h2>
+            <span class="form-text">Current Month</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="incomeExpenseChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart 2: Category Distribution -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                    <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+                </svg>
+                Expense by Category
+            </h2>
+            <span class="form-text">Top Spending Areas</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="categoryDistributionChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart 3: Monthly Spending Trends -->
+<div class="card" style="margin-bottom: 28px;">
+    <div class="card-header">
+        <h2 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+            6-Month Financial Trends
+        </h2>
+        <span class="form-text">Income & Expense Trajectory</span>
+    </div>
+    <div class="card-body">
+        <div class="chart-container" style="height: 320px;">
+            <canvas id="monthlyTrendsChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions Table Section -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 14 14"></polyline>
+            </svg>
+            Recent Transactions
+        </h2>
+        <a href="{{ url_for('transactions_list') }}" class="btn btn-outline btn-sm">
+            View All Transactions &rarr;
+        </a>
+    </div>
+
+    <div class="table-responsive">
+        {% if recent_transactions %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Category</th>
+                        <th>Description</th>
+                        <th>Payment Method</th>
+                        <th style="text-align: right;">Amount</th>
+                        <th style="text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in recent_transactions %}
+                        <tr>
+                            <td>{{ tx.transaction_date | format_date }}</td>
+                            <td>
+                                <span class="badge {% if tx.transaction_type == 'Income' %}badge-income{% else %}badge-expense{% endif %}">
+                                    {{ tx.transaction_type }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge badge-category">{{ tx.category }}</span>
+                            </td>
+                            <td>
+                                <strong>{{ tx.description or "—" }}</strong>
+                            </td>
+                            <td>{{ tx.payment_method }}</td>
+                            <td style="text-align: right;">
+                                <span class="{% if tx.transaction_type == 'Income' %}amount-income{% else %}amount-expense{% endif %}">
+                                    {% if tx.transaction_type == 'Income' %}+{% else %}-{% endif %}{{ tx.amount | currency }}
+                                </span>
+                            </td>
+                            <td style="text-align: center;">
+                                <div style="display: flex; gap: 6px; justify-content: center;">
+                                    <a href="{{ url_for('edit_transaction', tx_id=tx.id) }}" class="btn btn-outline btn-sm" title="Edit">
+                                        Edit
+                                    </a>
+                                    <form id="del-form-dash-{{ tx.id }}" action="{{ url_for('delete_transaction', tx_id=tx.id) }}" method="POST" style="display:inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="button" class="btn btn-outline btn-sm" style="color: var(--danger);" 
+                                                data-action="delete-trigger" 
+                                                data-form-id="del-form-dash-{{ tx.id }}" 
+                                                data-item-name="{{ tx.category }} ({{ tx.amount | currency }})">
+                                            Delete
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div style="padding: 48px; text-align: center;">
+                <p style="color: var(--text-muted); font-size: 1.05rem; margin-bottom: 16px;">
+                    No transactions recorded yet. Start managing your expenses today!
+                </p>
+                <a href="{{ url_for('add_transaction') }}" class="btn btn-primary">
+                    + Add Your First Transaction
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.renderPageCharts = function() {
+    const currency = "{{ currency_symbol }}";
+    
+    // 1. Income vs Expense
+    const incomeVal = {{ (summary.total_income / 100) | round(2) }};
+    const expenseVal = {{ (summary.total_expenses / 100) | round(2) }};
+    createIncomeExpenseChart("incomeExpenseChart", incomeVal, expenseVal, currency);
+
+    // 2. Category Breakdown
+    const catLabels = {{ category_spending | map(attribute='category') | list | tojson }};
+    const catAmounts = [
+        {% for cat in category_spending %}
+            {{ (cat.total_amount / 100) | round(2) }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    createCategoryDoughnutChart("categoryDistributionChart", catLabels, catAmounts, currency);
+
+    // 3. Monthly Trends
+    const trendLabels = {{ monthly_trends.labels | tojson }};
+    const trendIncome = {{ monthly_trends.income_data | tojson }};
+    const trendExpenses = {{ monthly_trends.expense_data | tojson }};
+    createMonthlyTrendsChart("monthlyTrendsChart", trendLabels, trendIncome, trendExpenses, currency);
+};
+
+// Execute chart creation on DOM load
+document.addEventListener("DOMContentLoaded", function() {
+    window.renderPageCharts();
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}Reports & Analytics | Personal Expense Tracker{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+
+{% block content %}
+<!-- Analytics Filter Toolbar -->
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-body" style="padding: 18px 24px;">
+        <form action="{{ url_for('reports') }}" method="GET" style="display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;">
+            <div style="flex: 1; min-width: 180px;">
+                <label class="form-label" style="font-size: 0.82rem;">Select Time Period</label>
+                <select name="period" id="reportPeriodSelect" class="form-control" onchange="toggleCustomDates(this.value)">
+                    <option value="this_month" {% if period == 'this_month' %}selected{% endif %}>Current Month</option>
+                    <option value="last_month" {% if period == 'last_month' %}selected{% endif %}>Last Month</option>
+                    <option value="last_30_days" {% if period == 'last_30_days' %}selected{% endif %}>Last 30 Days</option>
+                    <option value="this_year" {% if period == 'this_year' %}selected{% endif %}>Current Year</option>
+                    <option value="all_time" {% if period == 'all_time' %}selected{% endif %}>All Time</option>
+                    <option value="custom" {% if period == 'custom' %}selected{% endif %}>Custom Date Range</option>
+                </select>
+            </div>
+
+            <div id="customDateStart" style="flex: 1; min-width: 160px; {% if period != 'custom' %}display: none;{% endif %}">
+                <label class="form-label" style="font-size: 0.82rem;">From Date</label>
+                <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+            </div>
+
+            <div id="customDateEnd" style="flex: 1; min-width: 160px; {% if period != 'custom' %}display: none;{% endif %}">
+                <label class="form-label" style="font-size: 0.82rem;">To Date</label>
+                <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-primary">Generate Report</button>
+                <a href="{{ url_for('export_csv', start_date=start_date, end_date=end_date) }}" class="btn btn-outline" title="Export this report data">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Export CSV
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary Analytics Metrics -->
+<div class="stats-grid">
+    <div class="stat-card card-income">
+        <div class="stat-info">
+            <span class="stat-label">Period Income</span>
+            <span class="stat-value amount-income">{{ summary.total_income | currency }}</span>
+            <span class="stat-meta">{{ start_date | format_date }} – {{ end_date | format_date }}</span>
+        </div>
+        <div class="stat-icon icon-income">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>
+        </div>
+    </div>
+
+    <div class="stat-card card-expense">
+        <div class="stat-info">
+            <span class="stat-label">Period Expenses</span>
+            <span class="stat-value amount-expense">{{ summary.total_expenses | currency }}</span>
+            <span class="stat-meta">{{ summary.total_transactions }} total transactions</span>
+        </div>
+        <div class="stat-icon icon-expense">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+        </div>
+    </div>
+
+    <div class="stat-card card-balance">
+        <div class="stat-info">
+            <span class="stat-label">Net Cash Flow</span>
+            <span class="stat-value {% if summary.net_cash_flow >= 0 %}amount-income{% else %}amount-expense{% endif %}">
+                {{ summary.net_cash_flow | currency }}
+            </span>
+            <span class="stat-meta">Income minus expenses</span>
+        </div>
+        <div class="stat-icon icon-balance">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                <line x1="2" y1="10" x2="22" y2="10"></line>
+            </svg>
+        </div>
+    </div>
+
+    <div class="stat-card card-savings">
+        <div class="stat-info">
+            <span class="stat-label">Savings Rate</span>
+            <span class="stat-value">{{ summary.savings_rate }}%</span>
+            <span class="stat-meta">
+                Avg Daily Spend: {{ avg_daily_expense | currency }}
+            </span>
+        </div>
+        <div class="stat-icon icon-savings">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="8" r="7"></circle>
+                <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+            </svg>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="charts-grid">
+    <!-- Chart: Category Breakdown -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+                    <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+                </svg>
+                Spending by Category
+            </h2>
+            <span class="form-text">Share of Total Outflow</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="reportCategoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart: Daily Spending Trend -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                Daily Expense Distribution
+            </h2>
+            <span class="form-text">Period Trajectory</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="reportDailyChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly Historical Comparison Chart -->
+<div class="card" style="margin-bottom: 28px;">
+    <div class="card-header">
+        <h2 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            Annual Income vs. Expenses Comparison (12 Months)
+        </h2>
+    </div>
+    <div class="card-body">
+        <div class="chart-container" style="height: 320px;">
+            <canvas id="reportAnnualChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Category Breakdown Data Table -->
+<div class="card" style="margin-bottom: 28px;">
+    <div class="card-header">
+        <h2 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+            </svg>
+            Category Spending Summary Table
+        </h2>
+    </div>
+    <div class="table-responsive">
+        {% if category_breakdown %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Transactions</th>
+                        <th>Total Amount</th>
+                        <th>Percentage of Outflow</th>
+                        <th style="width: 25%;">Distribution</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in category_breakdown %}
+                        <tr>
+                            <td>
+                                <strong>{{ item.category }}</strong>
+                            </td>
+                            <td>{{ item.tx_count }}</td>
+                            <td class="amount-expense">{{ item.total_amount | currency }}</td>
+                            <td><strong>{{ item.percentage }}%</strong></td>
+                            <td>
+                                <div class="progress-track" style="height: 8px;">
+                                    <div class="progress-fill progress-safe" style="width: {{ item.percentage }}%;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div style="padding: 32px; text-align: center; color: var(--text-muted);">
+                No expense transactions recorded during this period.
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Weekly Spending Breakdown Table -->
+{% if weekly_summary %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            Weekly Expense Breakdown
+        </h2>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Week</th>
+                    <th>Date Range</th>
+                    <th>Transactions</th>
+                    <th style="text-align: right;">Total Spent</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for w in weekly_summary %}
+                    <tr>
+                        <td><strong>{{ w.week_label }}</strong></td>
+                        <td>{{ w.week_start | format_date }} &rarr; {{ w.week_end | format_date }}</td>
+                        <td>{{ w.count }}</td>
+                        <td style="text-align: right;" class="amount-expense">{{ w.total_spent | currency }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleCustomDates(val) {
+    const s = document.getElementById("customDateStart");
+    const e = document.getElementById("customDateEnd");
+    if (val === "custom") {
+        s.style.display = "block";
+        e.style.display = "block";
+    } else {
+        s.style.display = "none";
+        e.style.display = "none";
+    }
+}
+
+window.renderPageCharts = function() {
+    const currency = "{{ currency_symbol }}";
+
+    // 1. Category Chart
+    const catLabels = {{ category_breakdown | map(attribute='category') | list | tojson }};
+    const catAmounts = [
+        {% for cat in category_breakdown %}
+            {{ (cat.total_amount / 100) | round(2) }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    createCategoryDoughnutChart("reportCategoryChart", catLabels, catAmounts, currency);
+
+    // 2. Daily Spending Chart
+    const dailyLabels = {{ daily_summary | map(attribute='transaction_date') | list | tojson }};
+    const dailyAmounts = [
+        {% for d in daily_summary %}
+            {{ (d.total_spent / 100) | round(2) }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    createDailySpendingChart("reportDailyChart", dailyLabels, dailyAmounts, currency);
+
+    // 3. Annual 12-Month Comparison Chart
+    const annualLabels = {{ monthly_trends.labels | tojson }};
+    const annualIncome = {{ monthly_trends.income_data | tojson }};
+    const annualExpense = {{ monthly_trends.expense_data | tojson }};
+    createMonthlyTrendsChart("reportAnnualChart", annualLabels, annualIncome, annualExpense, currency);
+};
+
+document.addEventListener("DOMContentLoaded", function() {
+    window.renderPageCharts();
+});
+</script>
+{% endblock %}
+

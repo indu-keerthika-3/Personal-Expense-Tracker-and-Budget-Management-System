@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Settings | Personal Expense Tracker{% endblock %}
+{% block page_title %}Application Settings{% endblock %}
+
+{% block content %}
+<div style="max-width: 840px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px;">
+    <!-- General Preferences Card -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                General Preferences
+            </h2>
+        </div>
+
+        <div class="card-body">
+            <form action="{{ url_for('settings') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="form-row">
+                    <!-- Preferred Currency -->
+                    <div class="form-group">
+                        <label for="currency_code" class="form-label">Default Currency</label>
+                        <select name="currency_code" id="currency_code" class="form-control">
+                            {% for code, info in supported_currencies.items() %}
+                                <option value="{{ code }}" {% if currency_code == code %}selected{% endif %}>
+                                    {{ info.symbol }} - {{ info.name }} ({{ code }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <span class="form-text">Used across dashboards, reports, and calculations. Default: INR (₹)</span>
+                    </div>
+
+                    <!-- Default Monthly Budget -->
+                    <div class="form-group">
+                        <label for="default_monthly_budget" class="form-label">Default Monthly Budget Limit ({{ currency_symbol }})</label>
+                        <input type="number" id="default_monthly_budget" name="default_monthly_budget" class="form-control"
+                               step="0.01" min="0" value="{{ (settings.default_monthly_budget | int / 100) | round(2) }}">
+                        <span class="form-text">Fallback budget limit for newly generated months</span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <!-- Theme Preference -->
+                    <div class="form-group">
+                        <label for="theme_preference" class="form-label">Theme Mode</label>
+                        <select name="theme_preference" id="theme_preference" class="form-control">
+                            <option value="light" {% if settings.theme_preference == 'light' %}selected{% endif %}>Light Mode</option>
+                            <option value="dark" {% if settings.theme_preference == 'dark' %}selected{% endif %}>Dark Mode</option>
+                        </select>
+                        <span class="form-text">Can also be quickly toggled via the navbar button</span>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                    <button type="submit" class="btn btn-primary">
+                        Save Preferences
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Predefined Categories Overview Card -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+                Available Transaction Categories
+            </h2>
+        </div>
+
+        <div class="card-body">
+            <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; color: var(--danger);">
+                Expense Categories ({{ expense_categories | length }})
+            </h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px;">
+                {% for cat in expense_categories %}
+                    <span class="badge badge-category" style="padding: 6px 12px; font-size: 0.82rem;">
+                        {{ cat }}
+                    </span>
+                {% endfor %}
+            </div>
+
+            <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; color: var(--success);">
+                Income Categories ({{ income_categories | length }})
+            </h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px;">
+                {% for cat in income_categories %}
+                    <span class="badge badge-income" style="padding: 6px 12px; font-size: 0.82rem;">
+                        {{ cat }}
+                    </span>
+                {% endfor %}
+            </div>
+
+            <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 12px; color: var(--primary);">
+                Supported Payment Methods ({{ payment_methods | length }})
+            </h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                {% for m in payment_methods %}
+                    <span class="badge" style="background-color: rgba(37, 99, 235, 0.1); color: var(--primary); padding: 6px 12px; font-size: 0.82rem;">
+                        {{ m }}
+                    </span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- System Diagnostics Card -->
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                    <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                    <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                </svg>
+                System & Database Information
+            </h2>
+        </div>
+
+        <div class="card-body">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+                <div>
+                    <span class="stat-label">Application</span>
+                    <div>Personal Expense Tracker v1.0.0</div>
+                </div>
+                <div>
+                    <span class="stat-label">Backend Engine</span>
+                    <div>Python 3 / Flask Framework</div>
+                </div>
+                <div>
+                    <span class="stat-label">Database</span>
+                    <div>SQLite3 (ACID-compliant)</div>
+                </div>
+                <div>
+                    <span class="stat-label">Total Transactions</span>
+                    <div><strong>{{ total_records }}</strong> records stored</div>
+                </div>
+                <div>
+                    <span class="stat-label">Monetary Precision</span>
+                    <div>Integer Minor Units (Paise/Cents)</div>
+                </div>
+                <div>
+                    <span class="stat-label">Visualizations</span>
+                    <div>Chart.js 4.4 Engine</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
